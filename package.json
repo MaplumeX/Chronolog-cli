@@ -1,0 +1,22 @@
+{
+  "name": "chronolog-cli",
+  "version": "0.1.0",
+  "description": "JSON-output CLI for AI agents to operate a Chronolog instance",
+  "type": "module",
+  "bin": {
+    "chronolog": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test \"dist-test/test/*.test.js\""
+  },
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "typescript": "^5.9.3"
+  }
+}
