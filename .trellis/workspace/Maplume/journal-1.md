@@ -47,3 +47,24 @@ Synced Chronolog-cli with server updates since 8/27 (main@4a59635). Added: entri
 ### Status
 
 [OK] **Completed**
+
+
+## Session 3: Publish chronolog-cli@0.1.0 to npm
+
+**Date**: 2026-09-02
+**Task**: Publish chronolog-cli@0.1.0 to npm
+**Branch**: `main`
+
+### Summary
+
+Prepared and published chronolog-cli@0.1.0 to npm registry: removed private flag, added files/license/repository/keywords/author metadata and MIT LICENSE, updated README install instructions (npm i -g chronolog-cli), verified build+tests (69/69) and dry-run tarball contents, published via granular access token (npm account 2FA requires bypass-enabled token), and validated install+bin smoke test. Added publishing contract to CLI spec.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a8cdaa8` | (see git log) |
+
+### Status
+
+[OK] **Completed**
