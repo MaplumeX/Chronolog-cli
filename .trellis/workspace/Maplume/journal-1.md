@@ -26,3 +26,24 @@ Built the chronolog CLI in Chronolog-cli repo: zero-runtime-dependency TS ESM ag
 ### Status
 
 [OK] **Completed**
+
+
+## Session 2: Sync CLI with Chronolog server API updates
+
+**Date**: 2026-09-02
+**Task**: Sync CLI with Chronolog server API updates
+**Branch**: `main`
+
+### Summary
+
+Synced Chronolog-cli with server updates since 8/27 (main@4a59635). Added: entries create/delete, timer edit, stats range (--rollup), goals command group, account command group, top-level health, categories/tags color/parent/archive support. Widened list types, added resolveUrlLoose for unauthenticated commands. Tests 27 -> 69; README and cli-guidelines spec synced. Scope: all endpoints except /api/entries/boundary (user decision).
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `278e591` | (see git log) |
+
+### Status
+
+[OK] **Completed**
