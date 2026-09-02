@@ -6,6 +6,9 @@
   "bin": {
     "chronolog": "dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "engines": {
     "node": ">=22"
   },
@@ -14,7 +17,23 @@
     "typecheck": "tsc --noEmit",
     "test": "tsc -p tsconfig.test.json && node --test \"dist-test/test/*.test.js\""
   },
-  "private": true,
+  "keywords": [
+    "chronolog",
+    "cli",
+    "time-tracking",
+    "ai-agents",
+    "json"
+  ],
+  "author": "Maplume",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MaplumeX/Chronolog-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MaplumeX/Chronolog-cli/issues"
+  },
+  "homepage": "https://github.com/MaplumeX/Chronolog-cli#readme",
   "devDependencies": {
     "@types/node": "^26.4.0",
     "typescript": "^5.9.3"

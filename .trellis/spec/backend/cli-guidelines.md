@@ -91,6 +91,15 @@ Commands PATCHing a subset of fields (`timer edit`, `goals update`, `categories|
 
 ---
 
+## Publishing (npm)
+
+- Package is public on npm as `chronolog-cli`. `package.json` must keep: no `private`, `files: ["dist"]`, `license`, `repository`, `keywords`, `author`; `bin` entry `dist/index.js` must retain its `#!/usr/bin/env node` shebang.
+- Publish flow: `npm run build` + `npm test` → `npm publish --dry-run` (verify file list = dist artifacts + README + package.json + LICENSE only) → `npm publish`.
+- The npm account has 2FA enabled. Publishing from a terminal without interactive OTP requires a **granular access token with "bypass 2FA" enabled**; a token without that setting fails with `EOTP` (or `E403 ... bypass 2fa`). Pass the token via env without echoing it, and never commit it.
+- `files: ["dist"]` alone excludes `dist-test/`, `src/`, `tsconfig*.json`, `paseo.json` — do not add an `.npmignore`.
+
+---
+
 ## Runtime Dependencies
 
 `dependencies` must stay empty. Build-time only: `typescript`, `@types/node`. No commander/yargs — the self-written parser in `args.ts` is the contract; if a future feature outgrows it, that decision must be revisited explicitly.

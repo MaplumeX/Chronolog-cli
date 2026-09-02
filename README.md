@@ -5,12 +5,18 @@
 ## 安装
 
 ```bash
+npm i -g chronolog-cli
+```
+
+要求 Node.js 22+。
+
+## 本地开发
+
+```bash
 npm install
 npm run build
 npm link   # 可选：全局注册 chronolog 命令
 ```
-
-要求 Node.js 22+。
 
 ## 认证配置
 
