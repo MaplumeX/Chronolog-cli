@@ -62,7 +62,7 @@ export function clearConfigFile(): void {
   }
 }
 
-const AUTH_MISSING_HINT =
+export const AUTH_MISSING_HINT =
   "未配置认证。请设置环境变量 CHRONOLOG_URL 和 CHRONOLOG_TOKEN，或运行: chronolog auth login --url <url> --token <token>";
 
 export function resolveAuth(): ResolvedAuth {
@@ -76,6 +76,14 @@ export function resolveAuth(): ResolvedAuth {
     return { source: "file", url: file.url, token: file.token };
   }
   throw new CliError("AUTH_MISSING", AUTH_MISSING_HINT);
+}
+
+/** 宽松读取服务端 URL（无认证命令用）：env → 配置文件，均无则 undefined，不抛错 */
+export function resolveUrlLoose(): string | undefined {
+  const envUrl = process.env["CHRONOLOG_URL"];
+  if (envUrl && envUrl.length > 0) return envUrl;
+  const file = readConfigFile();
+  return file.url && file.url.length > 0 ? file.url : undefined;
 }
 
 export function maskToken(token: string): string {

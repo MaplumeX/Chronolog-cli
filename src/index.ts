@@ -9,12 +9,21 @@ import { runStats } from "./commands/stats.js";
 import { runCategories } from "./commands/categories.js";
 import { runTags } from "./commands/tags.js";
 import { runTokens } from "./commands/tokens.js";
+import { runGoals } from "./commands/goals.js";
+import { runAccount } from "./commands/account.js";
+import { runHealth } from "./commands/health.js";
 
 async function dispatch(): Promise<unknown> {
   const args = parseArgs(process.argv.slice(2));
   const [root, sub] = args.command;
+  if (root === "health" && sub === undefined) {
+    return runHealth(args);
+  }
   if (sub === undefined) {
-    throw new CliError("USAGE", `缺少子命令。可用命令: auth, timer, entries, stats, categories, tags, tokens`);
+    throw new CliError(
+      "USAGE",
+      `缺少子命令。可用命令: auth, timer, entries, stats, categories, tags, tokens, goals, account, health`,
+    );
   }
   switch (root) {
     case "auth":
@@ -31,10 +40,19 @@ async function dispatch(): Promise<unknown> {
       return runTags(args, sub);
     case "tokens":
       return runTokens(args, sub);
+    case "goals":
+      return runGoals(args, sub);
+    case "account":
+      return runAccount(args, sub);
+    case "health":
+      if (sub !== undefined) {
+        throw new CliError("USAGE", `health 不支持子命令: ${sub}`);
+      }
+      return runHealth(args);
     default:
       throw new CliError(
         "USAGE",
-        `未知命令: ${root}（可用: auth, timer, entries, stats, categories, tags, tokens）`,
+        `未知命令: ${root}（可用: auth, timer, entries, stats, categories, tags, tokens, goals, account, health）`,
       );
   }
 }

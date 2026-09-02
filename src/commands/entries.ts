@@ -8,10 +8,14 @@ export async function runEntries(args: ParsedArgs, sub: string): Promise<unknown
   switch (sub) {
     case "list":
       return entriesList(args);
+    case "create":
+      return entriesCreate(args);
     case "update":
       return entriesUpdate(args);
+    case "delete":
+      return entriesDelete(args);
     default:
-      throw new CliError("USAGE", `未知子命令: entries ${sub}（允许: list, update）`);
+      throw new CliError("USAGE", `未知子命令: entries ${sub}（允许: list, create, update, delete）`);
   }
 }
 
@@ -37,6 +41,26 @@ async function entriesList(args: ParsedArgs): Promise<unknown> {
     query: queryWithTz(args, { date: getFlag(args, "date"), tagId: resolvedTagId }),
   });
 }
+async function entriesCreate(args: ParsedArgs): Promise<unknown> {
+  noUnknownFlags(args, ["category", "description", "tag", "started-at", "stopped-at"]);
+  const category = getFlag(args, "category");
+  const description = getFlag(args, "description");
+  const startedAt = getFlag(args, "started-at");
+  const stoppedAt = getFlag(args, "stopped-at");
+  if (!category || description === undefined || !startedAt || !stoppedAt) {
+    throw new CliError(
+      "USAGE",
+      "用法: chronolog entries create --category <id|名称> --description <文本> [--tag <id|名称>...] --started-at <iso> --stopped-at <iso>",
+    );
+  }
+  const categoryId = await resolveCategory(category);
+  const tagIds = await resolveTags(getFlagArray(args, "tag"));
+  return api("/api/entries", {
+    method: "POST",
+    body: { description, categoryId, tagIds, startedAt, stoppedAt },
+  });
+}
+
 async function entriesUpdate(args: ParsedArgs): Promise<unknown> {
   noUnknownFlags(args, ["category", "description", "tag", "started-at", "stopped-at"]);
   const id = requirePositional(args, 0, "条目 id");
@@ -56,4 +80,10 @@ async function entriesUpdate(args: ParsedArgs): Promise<unknown> {
     method: "PATCH",
     body: { description, categoryId, tagIds, startedAt, stoppedAt },
   });
+}
+
+async function entriesDelete(args: ParsedArgs): Promise<unknown> {
+  noUnknownFlags(args, []);
+  const id = requirePositional(args, 0, "条目 id");
+  return api(`/api/entries/${id}`, { method: "DELETE" });
 }

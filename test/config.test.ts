@@ -10,6 +10,7 @@ import {
   writeConfigFile,
   clearConfigFile,
   maskToken,
+  resolveUrlLoose,
   CliError,
 } from "../src/config.js";
 
@@ -88,4 +89,15 @@ test("clearConfigFile 在文件不存在时不抛错", () => {
 test("maskToken 掩码保留首尾", () => {
   assert.equal(maskToken("abcd12345678wxyz"), "abcd********wxyz");
   assert.equal(maskToken("short"), "*****");
+});
+
+test("resolveUrlLoose：env 优先，无认证 token 也可读 url", () => {
+  writeConfigFile({ url: "http://file", token: undefined });
+  assert.equal(resolveUrlLoose(), "http://file");
+  process.env["CHRONOLOG_URL"] = "http://env";
+  assert.equal(resolveUrlLoose(), "http://env");
+});
+
+test("resolveUrlLoose：env 与配置均无 url 时返回 undefined（不抛错）", () => {
+  assert.equal(resolveUrlLoose(), undefined);
 });

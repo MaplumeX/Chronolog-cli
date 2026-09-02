@@ -55,11 +55,31 @@ Config file shape: `{ "url": string, "token": string }`. Token stored in plainte
 
 `--category` / `--tag` values: exact unique name match (via `GET /api/categories|tags`) → use its id; otherwise pass value through as-is (server validates ownership and returns `NOT_FOUND`). Do not pre-validate locally.
 
+Applies to every command that takes `--category` / `--tag`: `timer start`, `timer edit`, `entries create`, `entries update`, `goals add`, `goals update`. In `goals update`, the sentinels `none` / `null` bypass resolution and mean "clear the association" (send `null`).
+
+## Value Conversion (`src/commands/util.ts`)
+
+CLI flags are strings; convert to API types with these helpers (all invalid input → `USAGE`):
+
+- `parseColor`: `"1"`–`"8"` → number; `none`/`null` → `null` (clear). Out-of-range or non-integer → `USAGE`.
+- `parseParentId`: `none`/`root` → `null` (promote to top level); any other value passed through as id.
+- `parseHours`: `Number()`; NaN or ≤ 0 → `USAGE` (upper bound ≤ 1000 is server-side).
+- `parseEnum`: whitelist validation (`lt|gt`, `day|week|month`).
+- `parseDateParam`: `YYYY-MM-DD` regex check; exact calendar validation is server-side.
+
+## Partial-Field Updates
+
+Commands PATCHing a subset of fields (`timer edit`, `goals update`, `categories|tags rename`, `account profile`): `undefined` = flag absent = field omitted from body entirely. If the user provides no mutable field at all → `USAGE` ("至少提供一个字段"). `tagIds` exception: `--tag` present means full replacement (same as `entries update`); absent means omit `tagIds`.
+
+## Unauthenticated Commands
+
+`health` and `account meta` must NOT go through `api()` (it requires full auth). They use `request(url, "", path)` — the empty token still sends `Authorization: Bearer ` harmlessly. URL resolution: `--url` flag (health) → `resolveUrlLoose()` (env `CHRONOLOG_URL` → config file url; token NOT required). No URL anywhere → `AUTH_MISSING`.
+
 ---
 
 ## Timezone
 
-`entries list` / `stats today`: default tz = `Intl.DateTimeFormat().resolvedOptions().timeZone`; `--tz` overrides. Server requires IANA zone names (validated by luxon `IANAZone`).
+`entries list` / `stats today` / `stats range` / `goals list`: default tz = `Intl.DateTimeFormat().resolvedOptions().timeZone`; `--tz` overrides. Server requires IANA zone names (validated by luxon `IANAZone`).
 
 ---
 
@@ -79,8 +99,10 @@ Config file shape: `{ "url": string, "token": string }`. Token stored in plainte
 
 ## Known Server Limits (do not "fix" in CLI)
 
-- No `POST /api/entries`, no `DELETE /api/entries/:id` — entries come only from `timer start/stop`. `entries update` is full-field PATCH.
+- `entries create` requires ISO timestamps for `--started-at`/`--stopped-at` (same as `entries update`); no local date+time convenience conversion. `entries delete` only works on stopped entries (running → `409 CONFLICT`).
 - `GET /api/entries/today` ignores its `tagId` query param (server-side gap, `today.ts`); `stats today --tag-id` filters correctly.
+- `stats range` windows are capped at 92 days server-side; CLI only regex-checks `YYYY-MM-DD`.
+- Deleting a tag referenced by a goal → `409 CONFLICT` ("该标签已被目标引用"); deleting a category nulls references and cascades children (no 409).
 
 ---
 

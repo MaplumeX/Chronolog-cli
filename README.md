@@ -41,7 +41,7 @@ token 明文存于配置文件（与 gh cli 的 hosts.yml 同级风险），定�
 
 ## 时区
 
-`entries list`、`stats today` 需要 IANA 时区。默认取本机时区（`Intl.DateTimeFormat().resolvedOptions().timeZone`），可用 `--tz Asia/Shanghai` 覆盖。agent 在远程运行时建议显式传 `--tz`。
+`entries list`、`stats today`、`stats range`、`goals list` 需要 IANA 时区。默认取本机时区（`Intl.DateTimeFormat().resolvedOptions().timeZone`），可用 `--tz Asia/Shanghai` 覆盖。agent 在远程运行时建议显式传 `--tz`。
 
 ## 命令一览
 
@@ -52,7 +52,14 @@ chronolog auth login --url <url> --token <token>   # 写配置文件
 chronolog auth status                              # url、token 掩码、认证来源（env/file）、当前用户
 chronolog auth logout                              # 删除配置文件中的认证信息
 chronolog auth register --url <url> --username <u> --password <p>  # 注册（可选功能）
+chronolog account profile [--username <u>] [--display-name <n>]   # 改昵称/用户名（至少一个字段）
+chronolog account password --current-password <p> --new-password <p>  # 改密码（撤销所有 session，PAT 不受影响）
+chronolog account delete --password <p>           # 删账号（密码确认，级联删除全部数据，不可逆）
+chronolog account meta                             # 查询注册开关（无认证）
+chronolog health [--url <url>]                    # 健康检查（无认证，探测连通性）
 ```
+
+`account profile --display-name ""` 空串表示清除昵称（服务端转为 null）。密码只进请求体，不会出现在任何输出中。`account meta` / `health` 不需要 token，URL 取 `--url` 或 env/config 中的 url。
 
 ### 计时器
 
@@ -60,7 +67,10 @@ chronolog auth register --url <url> --username <u> --password <p>  # 注册（�
 chronolog timer start --category <id|名称> [--description <文本>] [--tag <id|名称>...]
 chronolog timer status    # 无运行中计时则 {"entry": null}
 chronolog timer stop
+chronolog timer edit [--description <文本>] [--category <id|名称>] [--tag <id|名称>...]
 ```
+
+`timer edit` 编辑当前运行中的计时器，只传需要改的字段（至少一个）；`--tag` 一旦出现即全量替换该条目的标签。无运行中计时器时服务端报 `CONFLICT`。
 
 `--category` / `--tag` 支持名称解析：先精确匹配名称，唯一命中则使用其 id，否则视为 id 直接使用。名称不存在时服务端报 `NOT_FOUND`。
 
@@ -69,34 +79,56 @@ chronolog timer stop
 ```bash
 chronolog entries list --today [--date <YYYY-MM-DD>] [--tag-id <id>] [--tz <tz>]
 chronolog entries list --week  [--date <YYYY-MM-DD>] [--tz <tz>]
+chronolog entries create --category <id|名称> --description <文本> [--tag <id|名称>...] --started-at <iso> --stopped-at <iso>
 chronolog entries update <id> --category <id|名称> --description <文本> [--tag <id|名称>...] --started-at <iso> --stopped-at <iso>
+chronolog entries delete <id>
 ```
 
-> **注意**：没有 `entries create` / `entries delete` 命令。Chronolog 服务端只提供 `PATCH /api/entries/:id`，没有手动创建和删除条目的端点；条目由 `timer start` / `timer stop` 产生。`entries update` 为全量字段（对应服务端 PATCH 语义）。
+`entries create` 手动创建已停止条目（`--started-at`/`--stopped-at` 为 ISO 时刻，与 update 一致）；与既有条目重叠时服务端报 `OVERLAP`。`entries delete` 仅能删除已停止条目，运行中的报 `CONFLICT`。`entries update` 为全量字段（对应服务端 PATCH 语义）。
 
 ### 统计
 
 ```bash
-chronolog stats today [--tz <tz>] [--tag-id <id>]
+chronolog stats today [--tz <tz>] [--tag-id <id>] [--rollup]
+chronolog stats range --from <YYYY-MM-DD> --to <YYYY-MM-DD> [--tag-id <id>] [--rollup] [--tz <tz>]
 ```
+
+`--rollup` 把子分类秒数并入父级桶。`stats range` 按本地日期闭区间统计（`--from`/`--to` 必填，区间最多 92 天）。
+
+### 目标
+
+```bash
+chronolog goals list [--tz <tz>]
+chronolog goals add <name> [--icon <emoji>] [--category <id|名称>] [--tag <id|名称>] --direction <lt|gt> --hours <n> --period <day|week|month> [--due <YYYY-MM-DD>]
+chronolog goals update <id> [--name <n>] [--icon <emoji>] [--category <id|名称>|none] [--tag <id|名称>|none] [--direction <lt|gt>] [--hours <n>] [--period <day|week|month>] [--due <YYYY-MM-DD>]
+chronolog goals delete <id>
+```
+
+`--direction lt` 表示“少于 X 小时”、`gt` 表示“多于 X 小时”。`goals update` 只传需要改的字段（至少一个）；`--category none` / `--tag none` 清除关联。`goals list` 返回每个目标的进度（`progress.currentSeconds` / `progress.targetSeconds`）与状态（`active` / `achieved` / `expired`）。
 
 ### 分类
 
 ```bash
 chronolog categories list
-chronolog categories add <name>
-chronolog categories rename <id> <new-name>
-chronolog categories delete <id>   # 有时间记录引用时服务端报 409 CONFLICT
+chronolog categories add <name> [--color <1-8|none>] [--parent <id|none|root>]
+chronolog categories rename <id> [--name <n>] [--color <1-8|none>] [--parent <id|none|root>]
+chronolog categories archive <id>
+chronolog categories unarchive <id>
+chronolog categories delete <id>
 ```
+
+`--color` 取 1–8 的调色板编号；`--color none`（或 `null`）清除颜色。`--parent` 指定父分类 id，`--parent none` / `--parent root` 提升为顶层。`rename` 只传需要改的字段（至少一个）。删除分类时服务端会把引用它的条目置 NULL 并级联删除其子分类（不再报 409）。
 
 ### 标签
 
 ```bash
 chronolog tags list
-chronolog tags add <name>
-chronolog tags rename <id> <new-name>
+chronolog tags add <name> [--color <1-8|none>] [--parent <id|none|root>]
+chronolog tags rename <id> [--name <n>] [--color <1-8|none>] [--parent <id|none|root>]
 chronolog tags delete <id>
 ```
+
+`--color` / `--parent` 语义同分类。删除被目标（goal）引用的标签时服务端报 `409 CONFLICT`（“该标签已被目标引用”）。
 
 ### Token 管理
 

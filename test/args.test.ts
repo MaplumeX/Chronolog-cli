@@ -53,6 +53,28 @@ test("缺少命令抛 USAGE", () => {
   assert.throws(() => parseArgs(["--today"]), (err: unknown) => err instanceof CliError && err.code === "USAGE");
 });
 
+test("health 顶层命令只取一个命令段", () => {
+  const args = parseArgs(["health", "--url", "http://x"]);
+  assert.deepEqual(args.command, ["health"]);
+  assert.equal(getFlag(args, "url"), "http://x");
+});
+
+test("裸 --rollup 为布尔 true", () => {
+  const args = parseArgs(["stats", "range", "--from", "2026-09-01", "--to", "2026-09-07", "--rollup"]);
+  assert.equal(args.flags["rollup"], true);
+});
+
+test("--color=none / --parent=root 等哨兵值按普通字符串解析", () => {
+  const args = parseArgs(["categories", "add", "x", "--color=none", "--parent=root"]);
+  assert.equal(getFlag(args, "color"), "none");
+  assert.equal(getFlag(args, "parent"), "root");
+});
+
+test("--display-name 空串可解析（account profile 清空昵称）", () => {
+  const args = parseArgs(["account", "profile", "--display-name="]);
+  assert.equal(getFlag(args, "display-name"), "");
+});
+
 test("requirePositional 缺失抛 USAGE", () => {
   const args = parseArgs(["categories", "delete"]);
   assert.throws(() => requirePositional(args, 0, "分类 id"), (err: unknown) => err instanceof CliError);
