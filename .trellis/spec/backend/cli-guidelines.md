@@ -12,8 +12,10 @@ The CLI is an agent-facing JSON client for the Chronolog server (`../Chronolog`)
 
 ## Output Contract (CRITICAL)
 
-- Success: single JSON object to stdout via `JSON.stringify(result)`, exit code 0. No extra prints, no pretty tables, no colors on stdout.
+- Operational success: single JSON object to stdout via `JSON.stringify(result)`, exit code 0. No extra prints, no pretty tables, no colors on stdout.
 - Failure: `{"error":{"code":"...","message":"..."}}` to stdout, one-line human summary to stderr, exit code 1.
+- Human discovery is the only successful text-output exception: `--help`, `help`, `--version`, and `version` write deterministic plain text to stdout with exit code 0.
+- Structured discovery uses one JSON object: `help --json`, `version --json`, and `capabilities`. Discovery requires no auth and performs no network requests.
 - Never log secrets (token, password) to stdout. `auth status` / `auth login` print masked tokens only (first 4 + last 4).
 
 ### Error Codes
@@ -31,15 +33,78 @@ The CLI is an agent-facing JSON client for the Chronolog server (`../Chronolog`)
 
 Precedence: env (`CHRONOLOG_URL` + `CHRONOLOG_TOKEN`) → config file `~/.config/chronolog-cli/config.json` (respects `XDG_CONFIG_HOME`) → `AUTH_MISSING` error.
 
-Config file shape: `{ "url": string, "token": string }`. Token stored in plaintext (accepted tradeoff for self-hosted personal use; do not add OS keychain).
+Config file shape: `{ "url": string, "token": string }`. Token stored in plaintext (accepted tradeoff for self-hosted personal use; do not add OS keychain). On POSIX, every write must create or restore the file mode to `0600`.
 
 ---
 
-## Argv Parsing Contract (`src/args.ts`)
+## Command Catalog and Argv Contract (`src/catalog.ts`, `src/args.ts`)
 
-- First non-flag segments = command path (e.g. `timer start`); extra positional segments beyond the command signature → `USAGE`.
-- `--flag value` and `--flag=value` both valid; bare `--flag` = boolean `true`; repeated flags aggregate into a string array.
-- Unknown flag → `USAGE`.
+- `src/catalog.ts` is the single source of truth for public command paths, generic argument shapes, help/capability metadata, auth requirements, and operation classification. Handler code remains authoritative for domain value checks and API requests.
+- First non-flag segments = command path (e.g. `timer start`); missing or extra positional segments beyond the catalog signature → `USAGE`.
+- `--flag value` and `--flag=value` are both valid for value flags; bare catalog-declared boolean flags are `true`; catalog-declared repeatable flags aggregate into a string array.
+- Boolean flags do not consume a following positional and reject `--flag=value`. Missing values, unknown flags, and repeated non-repeatable flags → `USAGE`.
+- Text help and structured capability output must be rendered from the catalog, not maintained as a second command list.
+
+---
+
+## Scenario: Extend the Public CLI Surface
+
+### 1. Scope / Trigger
+
+Use this contract whenever adding or changing a public command, positional argument, flag, discovery invocation, or config-writing authentication flow. It prevents the parser, help output, capability manifest, handlers, and tests from drifting apart.
+
+### 2. Signatures
+
+- Operational command: `chronolog <root> [subcommand] [positionals] [flags]`.
+- Discovery: `chronolog help [root] [subcommand] [--json]`, `chronolog version [--json]`, and `chronolog capabilities`.
+- Catalog lookup: `findCommand(path: readonly string[]): CommandSpec | undefined`.
+- Config write: `writeConfigFile(config: { url: string; token: string }): void`.
+
+### 3. Contracts
+
+- Every operational command path and generic argument shape appears exactly once in `COMMANDS`.
+- `CommandSpec` exposes `path`, `usage`, `auth`, `operation`, `positionals`, `flags`, and representative `errors`.
+- Discovery performs no authentication or network I/O. Text and JSON help are projections of the same `CommandSpec` data.
+- Operational stdout remains one JSON object. Human discovery is the only successful text exception.
+- Config writes preserve the JSON shape and enforce mode `0600` on POSIX.
+
+### 4. Validation & Error Matrix
+
+| Condition | Result |
+|---|---|
+| Unknown flag on a known command | `USAGE` |
+| Missing value for a string flag | `USAGE` |
+| `--boolean=value` | `USAGE` |
+| Repeated non-repeatable flag | `USAGE` |
+| Missing or surplus positional | `USAGE` |
+| Unknown help path or invalid discovery arguments | Existing JSON `USAGE` error envelope |
+| Owning `chronolog-cli` package version cannot be found | `INTERNAL` |
+| POSIX permission hardening fails | Normal CLI failure; never silently ignored |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `chronolog timer start --category work --tag focused --tag billable` preserves repeated tags.
+- Base: `chronolog help timer start --json` returns one command metadata object without auth.
+- Bad: `chronolog entries list --today=true` fails with `USAGE`; it must not coerce the string to truthy.
+
+### 6. Tests Required
+
+- Catalog: assert unique paths and exact coverage of every dispatchable command.
+- Parser: assert both value syntaxes, repeated-array flags, boolean non-consumption, and every generic `USAGE` branch.
+- Discovery: assert root/group/command text help and equivalent JSON, version forms, and complete capabilities.
+- Compatibility: retain handler/request tests to prove valid invocations produce unchanged API paths and bodies.
+- Config: assert mode `0600` after both initial creation and overwrite on POSIX.
+- Packaging: run `npm pack --dry-run` and assert `dist/` is present while `skills/` is absent.
+
+### 7. Wrong vs Correct
+
+```typescript
+// Wrong: add a handler-only flag; discovery and generic validation drift.
+const value = getFlag(args, "new-flag");
+
+// Correct: declare the flag in the command's CommandSpec, then consume it in the handler.
+flags: [flag("new-flag", "string", "Meaning", { value: "value" })];
+```
 
 ---
 
@@ -97,6 +162,7 @@ Commands PATCHing a subset of fields (`timer edit`, `goals update`, `categories|
 - Publish flow: `npm run build` + `npm test` → `npm publish --dry-run` (verify file list = dist artifacts + README + package.json + LICENSE only) → `npm publish`.
 - The npm account has 2FA enabled. Publishing from a terminal without interactive OTP requires a **granular access token with "bypass 2FA" enabled**; a token without that setting fails with `EOTP` (or `E403 ... bypass 2fa`). Pass the token via env without echoing it, and never commit it.
 - `files: ["dist"]` alone excludes `dist-test/`, `src/`, `tsconfig*.json`, `paseo.json` — do not add an `.npmignore`.
+- The portable Agent Skill lives at repository path `skills/chronolog/SKILL.md` for GitHub-based skill installers. It intentionally stays outside the npm tarball; do not add `skills` to `package.json.files` or install it with an npm lifecycle script.
 
 ---
 

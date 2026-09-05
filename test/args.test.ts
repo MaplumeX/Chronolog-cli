@@ -11,8 +11,9 @@ test("命令路径 + 位置参数", () => {
 });
 
 test("--flag value 形式", () => {
-  const args = parseArgs(["categories", "rename", "abc123", "新名字"]);
-  assert.deepEqual(args.positional, ["abc123", "新名字"]);
+  const args = parseArgs(["categories", "rename", "abc123", "--name", "新名字"]);
+  assert.deepEqual(args.positional, ["abc123"]);
+  assert.equal(getFlag(args, "name"), "新名字");
 });
 
 test("--flag=value 形式", () => {
@@ -44,9 +45,11 @@ test("值本身以 -- 开头时视为下一个 flag（裸 flag 保持布尔）",
   assert.equal(getFlag(args, "b"), "x");
 });
 
-test("末尾裸 --flag 保持布尔", () => {
-  const args = parseArgs(["entries", "list", "--week", "--date"]);
-  assert.equal(args.flags["date"], true);
+test("值参数缺少值抛 USAGE", () => {
+  assert.throws(
+    () => parseArgs(["entries", "list", "--week", "--date"]),
+    (err: unknown) => err instanceof CliError && err.code === "USAGE",
+  );
 });
 
 test("缺少命令抛 USAGE", () => {
@@ -76,6 +79,41 @@ test("--display-name 空串可解析（account profile 清空昵称）", () => {
 });
 
 test("requirePositional 缺失抛 USAGE", () => {
-  const args = parseArgs(["categories", "delete"]);
+  const args = parseArgs(["unknown", "delete"]);
   assert.throws(() => requirePositional(args, 0, "分类 id"), (err: unknown) => err instanceof CliError);
+});
+
+test("已知命令拒绝多余位置参数", () => {
+  assert.throws(
+    () => parseArgs(["entries", "delete", "e-1", "extra"]),
+    (err: unknown) => err instanceof CliError && err.code === "USAGE",
+  );
+});
+
+test("布尔 flag 不吞掉后续位置参数", () => {
+  assert.throws(
+    () => parseArgs(["entries", "list", "--today", "extra"]),
+    (err: unknown) => err instanceof CliError && err.code === "USAGE",
+  );
+});
+
+test("布尔 flag 拒绝等号值", () => {
+  assert.throws(
+    () => parseArgs(["entries", "list", "--today=true"]),
+    (err: unknown) => err instanceof CliError && err.code === "USAGE",
+  );
+});
+
+test("标量 flag 不可重复", () => {
+  assert.throws(
+    () => parseArgs(["health", "--url", "http://a", "--url", "http://b"]),
+    (err: unknown) => err instanceof CliError && err.code === "USAGE",
+  );
+});
+
+test("所有已知命令都拒绝未知 flag，包括 tokens", () => {
+  assert.throws(
+    () => parseArgs(["tokens", "list", "--force"]),
+    (err: unknown) => err instanceof CliError && err.code === "USAGE",
+  );
 });

@@ -1,4 +1,5 @@
 import { CliError } from "./config.js";
+import { findCommand, type CommandSpec } from "./catalog.js";
 
 export type ParsedArgs = {
   /** 命令路径，如 ["timer", "start"] */
@@ -30,27 +31,68 @@ export function parseArgs(argv: string[]): ParsedArgs {
     throw new CliError("USAGE", "缺少命令。用法示例: chronolog timer status");
   }
 
+  const spec = findCommand(command);
+
   for (; i < argv.length; i++) {
     const arg = argv[i];
     if (arg.startsWith("--")) {
       const eq = arg.indexOf("=");
-      if (eq === -1) {
-        const name = flagName(arg);
-        // 裸 --flag 先视为布尔，若下一段不是 flag 则作为其值
-        if (i + 1 < argv.length && !argv[i + 1].startsWith("--")) {
-          pushFlag(flags, name, argv[i + 1]);
-          i++;
-        } else {
-          pushFlag(flags, name, true);
+      const name = flagName(eq === -1 ? arg : arg.slice(0, eq));
+      const flagSpec = spec?.flags.find((candidate) => candidate.name === name);
+      if (spec && !flagSpec) unknownFlag(spec, name);
+      if (flagSpec) {
+        if (flags[name] !== undefined && flagSpec.kind !== "repeatable-string") {
+          throw new CliError("USAGE", `参数不可重复: --${name}`);
         }
-      } else {
-        pushFlag(flags, flagName(arg.slice(0, eq)), arg.slice(eq + 1));
+        if (flagSpec.kind === "boolean") {
+          if (eq !== -1) throw new CliError("USAGE", `布尔参数不接受值: --${name}`);
+          pushFlag(flags, name, true);
+          continue;
+        }
+        if (eq !== -1) {
+          pushFlag(flags, name, arg.slice(eq + 1));
+          continue;
+        }
+        if (i + 1 >= argv.length || argv[i + 1].startsWith("--")) {
+          throw new CliError("USAGE", `参数缺少值: --${name}`);
+        }
+        pushFlag(flags, name, argv[++i]);
+        continue;
       }
+
+      // 未知命令仍按旧规则解析，让 dispatcher 返回更准确的命令错误。
+      if (eq !== -1) pushFlag(flags, name, arg.slice(eq + 1));
+      else if (i + 1 < argv.length && !argv[i + 1].startsWith("--")) pushFlag(flags, name, argv[++i]);
+      else pushFlag(flags, name, true);
     } else {
       positional.push(arg);
     }
   }
-  return { command, flags, positional };
+  const parsed = { command, flags, positional };
+  if (spec) validateShape(parsed, spec);
+  return parsed;
+}
+
+function unknownFlag(spec: CommandSpec, name: string): never {
+  const allowed = spec.flags.map((item) => `--${item.name}`).join(", ");
+  throw new CliError("USAGE", `未知参数: --${name}${allowed ? `（允许: ${allowed}）` : ""}`);
+}
+
+function validateShape(args: ParsedArgs, spec: CommandSpec): void {
+  const requiredPositionals = spec.positionals.filter((item) => item.required).length;
+  if (args.positional.length < requiredPositionals) {
+    const missing = spec.positionals[args.positional.length];
+    throw new CliError("USAGE", `缺少参数: ${missing?.description ?? "位置参数"}`);
+  }
+  if (args.positional.length > spec.positionals.length) {
+    throw new CliError("USAGE", `多余参数: ${args.positional.slice(spec.positionals.length).join(" ")}`);
+  }
+  const missingFlags = spec.flags
+    .filter((item) => item.required && args.flags[item.name] === undefined)
+    .map((item) => `--${item.name}`);
+  if (missingFlags.length > 0) {
+    throw new CliError("USAGE", `缺少必填参数: ${missingFlags.join(", ")}。用法: ${spec.usage}`);
+  }
 }
 
 function flagName(raw: string): string {

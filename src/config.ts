@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
@@ -51,7 +51,8 @@ export function readConfigFile(): FileConfig {
 export function writeConfigFile(config: FileConfig): void {
   const file = configFilePath();
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify(config, null, 2) + "\n", "utf8");
+  writeFileSync(file, JSON.stringify(config, null, 2) + "\n", { encoding: "utf8", mode: 0o600 });
+  if (process.platform !== "win32") chmodSync(file, 0o600);
 }
 
 export function clearConfigFile(): void {

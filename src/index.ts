@@ -12,9 +12,10 @@ import { runTokens } from "./commands/tokens.js";
 import { runGoals } from "./commands/goals.js";
 import { runAccount } from "./commands/account.js";
 import { runHealth } from "./commands/health.js";
+import { discoveryOutput, type CliOutput } from "./discovery.js";
 
-async function dispatch(): Promise<unknown> {
-  const args = parseArgs(process.argv.slice(2));
+export async function dispatch(argv: string[]): Promise<unknown> {
+  const args = parseArgs(argv);
   const [root, sub] = args.command;
   if (root === "health" && sub === undefined) {
     return runHealth(args);
@@ -57,10 +58,20 @@ async function dispatch(): Promise<unknown> {
   }
 }
 
+function writeOutput(output: CliOutput): void {
+  if (output.format === "text") {
+    process.stdout.write(output.value + "\n");
+  } else {
+    process.stdout.write(JSON.stringify(output.value) + "\n");
+  }
+}
+
 async function main(): Promise<void> {
   try {
-    const result = await dispatch();
-    process.stdout.write(JSON.stringify(result) + "\n");
+    const argv = process.argv.slice(2);
+    const discovery = discoveryOutput(argv);
+    if (discovery) writeOutput(discovery);
+    else writeOutput({ format: "json", value: await dispatch(argv) });
     process.exitCode = 0;
   } catch (err) {
     let code = "UNKNOWN";

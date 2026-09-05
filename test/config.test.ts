@@ -1,6 +1,6 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, statSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -48,6 +48,15 @@ test("env 优先于配置文件", () => {
   assert.equal(auth.source, "env");
   assert.equal(auth.url, "http://env");
   assert.equal(auth.token, "env-token");
+});
+
+test("配置文件在 POSIX 上始终收紧为 0600", { skip: process.platform === "win32" }, () => {
+  writeConfigFile({ url: "http://file", token: "file-token" });
+  assert.equal(statSync(configFilePath()).mode & 0o777, 0o600);
+
+  chmodSync(configFilePath(), 0o644);
+  writeConfigFile({ url: "http://updated", token: "updated-token" });
+  assert.equal(statSync(configFilePath()).mode & 0o777, 0o600);
 });
 
 test("无 env 时读配置文件", () => {

@@ -1,6 +1,6 @@
 # Chronolog CLI
 
-面向 AI agent 的 [Chronolog](../Chronolog) 命令行客户端。所有命令输出**单一 JSON 对象**到 stdout，方便 agent 解析；人类可读的摘要输出到 stderr。
+面向 AI agent 的 [Chronolog](../Chronolog) 命令行客户端。业务命令输出**单一 JSON 对象**到 stdout，方便 agent 解析；人类可读的错误摘要输出到 stderr。
 
 ## 安装
 
@@ -9,6 +9,20 @@ npm i -g chronolog-cli
 ```
 
 要求 Node.js 22+。
+
+### 可选：安装 Agent Skill
+
+CLI 和 Skill 分开安装。Skill 会指导 agent 先读取状态、显式处理时区，并在危险操作前确认；具体命令语法仍以已安装 CLI 的帮助为准。
+
+```bash
+# Codex（用户级）
+gh skill install MaplumeX/Chronolog-cli chronolog --agent codex --scope user
+
+# Claude Code（用户级）
+gh skill install MaplumeX/Chronolog-cli chronolog --agent claude-code --scope user
+```
+
+Skill 源文件位于 [`skills/chronolog/SKILL.md`](skills/chronolog/SKILL.md)，通过 GitHub 分发，不包含在 npm 包中。
 
 ## 本地开发
 
@@ -41,9 +55,25 @@ token 明文存于配置文件（与 gh cli 的 hosts.yml 同级风险），定�
 
 ## 输出约定
 
-- 成功：stdout 输出单一 JSON 对象（可被 `JSON.parse`），退出码 0
+- 业务成功：stdout 输出单一 JSON 对象（可被 `JSON.parse`），退出码 0
 - 失败：stdout 输出 `{"error":{"code":"...","message":"..."}}`，stderr 一行纯文本摘要，退出码 1
+- `--help` / `help` / `--version` / `version`：stdout 输出简洁纯文本，退出码 0
+- `help --json` / `version --json` / `capabilities`：stdout 输出单一 JSON 对象，退出码 0
 - 错误码：服务端错误透传（`UNAUTHORIZED` / `NOT_FOUND` / `CONFLICT` / `OVERLAP` / `VALIDATION` / `PARSE` 等）；CLI 自身错误用 `AUTH_MISSING` / `NETWORK` / `USAGE` / `INTERNAL`
+
+## 能力发现
+
+```bash
+chronolog --help                         # 根帮助（纯文本）
+chronolog timer --help                   # 命令组帮助
+chronolog timer start --help             # 子命令帮助
+chronolog help timer start --json        # 同一份元数据，JSON 格式
+chronolog --version                      # 简洁版本文本
+chronolog version --json                 # {"name":"chronolog","version":"..."}
+chronolog capabilities                   # 全部命令、参数、认证与操作类型
+```
+
+帮助与能力清单不需要认证，也不会发起网络请求。`capabilities` 适合 agent 初次接触或 CLI 升级后重新发现接口；日常调用可使用更小的 scoped help。
 
 ## 时区
 
@@ -149,6 +179,7 @@ chronolog tokens delete <id>
 - `--flag value` 与 `--flag=value` 均可
 - 裸 `--flag` 为布尔 true（如 `--today`、`--week`）
 - 重复 flag 聚合为数组（如多个 `--tag`）
+- 未知 flag、缺少 flag 值、重复的非数组 flag、多余位置参数都会返回 `USAGE`
 
 ## 开发
 
