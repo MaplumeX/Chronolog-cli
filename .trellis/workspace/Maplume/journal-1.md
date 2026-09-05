@@ -68,3 +68,24 @@ Prepared and published chronolog-cli@0.1.0 to npm registry: removed private flag
 ### Status
 
 [OK] **Completed**
+
+
+## Session 4: Polish agent-facing CLI and add Chronolog skill
+
+**Date**: 2026-09-05
+**Task**: Polish agent-facing CLI and add Chronolog skill
+**Branch**: `main`
+
+### Summary
+
+Added catalog-driven help/version/capabilities, strict argv validation, POSIX config permissions, a GitHub-distributed Chronolog Agent Skill, documentation, specs, and regression coverage; all 84 tests and packaging checks pass.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4ac3279` | (see git log) |
+
+### Status
+
+[OK] **Completed**
