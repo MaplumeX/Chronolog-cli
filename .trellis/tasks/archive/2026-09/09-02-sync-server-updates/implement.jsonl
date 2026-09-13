@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/backend/cli-guidelines.md", "reason": "CLI 输出契约、错误码、命名约定——所有新命令必须遵循"}
-{"file": ".trellis/spec/backend/error-handling.md", "reason": "错误归一化约定（USAGE/AUTH_MISSING/NETWORK 等本地错误码）"}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "测试与质量门槛要求"}
