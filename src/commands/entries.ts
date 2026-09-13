@@ -2,7 +2,7 @@ import { CliError } from "../config.js";
 import { api } from "../api.js";
 import { getFlag, getFlagBoolean, noUnknownFlags, requirePositional, getFlagArray, type ParsedArgs } from "../args.js";
 import { resolveCategory, resolveTags } from "../resolve.js";
-import { queryWithTz } from "./util.js";
+import { queryWithTz, parseEnum } from "./util.js";
 
 export async function runEntries(args: ParsedArgs, sub: string): Promise<unknown> {
   switch (sub) {
@@ -14,8 +14,10 @@ export async function runEntries(args: ParsedArgs, sub: string): Promise<unknown
       return entriesUpdate(args);
     case "delete":
       return entriesDelete(args);
+    case "merge":
+      return entriesMerge(args);
     default:
-      throw new CliError("USAGE", `未知子命令: entries ${sub}（允许: list, create, update, delete）`);
+      throw new CliError("USAGE", `未知子命令: entries ${sub}（允许: list, create, update, delete, merge）`);
   }
 }
 
@@ -86,4 +88,24 @@ async function entriesDelete(args: ParsedArgs): Promise<unknown> {
   noUnknownFlags(args, []);
   const id = requirePositional(args, 0, "条目 id");
   return api(`/api/entries/${id}`, { method: "DELETE" });
+}
+
+async function entriesMerge(args: ParsedArgs): Promise<unknown> {
+  noUnknownFlags(args, ["direction", "keep"]);
+  const id = requirePositional(args, 0, "条目 id");
+  const direction = getFlag(args, "direction");
+  const keep = getFlag(args, "keep");
+  if (!direction || !keep) {
+    throw new CliError(
+      "USAGE",
+      "用法: chronolog entries merge <id> --direction <prev|next> --keep <self|other>",
+    );
+  }
+  return api(`/api/entries/${id}/merge`, {
+    method: "POST",
+    body: {
+      direction: parseEnum(direction, ["prev", "next"] as const, "direction"),
+      keep: parseEnum(keep, ["self", "other"] as const, "keep"),
+    },
+  });
 }

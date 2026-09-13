@@ -192,6 +192,32 @@ test("entries delete：未知 flag → USAGE", async () => {
   await assertUsage(run(["entries", "delete", "e-1", "--force"]));
 });
 
+test("entries merge：POST /api/entries/:id/merge，direction/keep 进 body", async () => {
+  const { baseUrl, requests } = await startFakeApi((req, res) => {
+    if (req.method === "POST" && pathOf(req.url) === "/api/entries/e-1/merge") {
+      json(res, { entry: { id: "e-1", description: "kept" } });
+      return;
+    }
+    json(res, { error: { code: "NOT_FOUND", message: "no route" } }, 404);
+  });
+  process.env["CHRONOLOG_URL"] = baseUrl;
+  process.env["CHRONOLOG_TOKEN"] = "tok-123";
+  const result = await run(["entries", "merge", "e-1", "--direction", "prev", "--keep", "self"]);
+  assert.deepEqual(result, { entry: { id: "e-1", description: "kept" } });
+  const last = requests[requests.length - 1];
+  assert.equal(last.method, "POST");
+  assert.equal(last.url, "/api/entries/e-1/merge");
+  assert.deepEqual(last.body, { direction: "prev", keep: "self" });
+});
+
+test("entries merge：缺 direction/keep 或非法枚举 → USAGE", async () => {
+  await assertUsage(run(["entries", "merge", "e-1", "--keep", "self"]));
+  await assertUsage(run(["entries", "merge", "e-1", "--direction", "prev"]));
+  await assertUsage(run(["entries", "merge", "e-1", "--direction", "up", "--keep", "self"]));
+  await assertUsage(run(["entries", "merge", "e-1", "--direction", "prev", "--keep", "mine"]));
+  await assertUsage(run(["entries", "merge", "--direction", "prev", "--keep", "self"]));
+});
+
 // ---------- timer edit ----------
 
 test("timer edit：部分字段仅传 description", async () => {
@@ -583,6 +609,43 @@ test("account profile：部分字段，--display-name 空串原样进 body", asy
 
 test("account profile：一个字段都不传 → USAGE", async () => {
   await assertUsage(run(["account", "profile"]));
+});
+
+test("account profile：--timezone none 清除，--continuous-timing 转 boolean", async () => {
+  const { baseUrl, requests } = await startFakeApi((req, res) => {
+    if (req.method === "PATCH" && pathOf(req.url) === "/api/profile") {
+      json(res, { id: "u-1", username: "alice", timezone: null, continuousTiming: true });
+      return;
+    }
+    json(res, { error: { code: "NOT_FOUND", message: "no route" } }, 404);
+  });
+  process.env["CHRONOLOG_URL"] = baseUrl;
+  process.env["CHRONOLOG_TOKEN"] = "tok-123";
+  const result = await run([
+    "account", "profile", "--timezone", "none", "--continuous-timing", "true",
+  ]);
+  assert.deepEqual(result, { id: "u-1", username: "alice", timezone: null, continuousTiming: true });
+  const last = requests[requests.length - 1];
+  assert.deepEqual(last.body, { timezone: "", continuousTiming: true });
+});
+
+test("account profile：--timezone 传 IANA 名，--continuous-timing false 原样进 body", async () => {
+  const { baseUrl, requests } = await startFakeApi((req, res) => {
+    if (req.method === "PATCH" && pathOf(req.url) === "/api/profile") {
+      json(res, { id: "u-1", username: "alice", timezone: "Asia/Shanghai", continuousTiming: false });
+      return;
+    }
+    json(res, { error: { code: "NOT_FOUND", message: "no route" } }, 404);
+  });
+  process.env["CHRONOLOG_URL"] = baseUrl;
+  process.env["CHRONOLOG_TOKEN"] = "tok-123";
+  await run(["account", "profile", "--timezone", "Asia/Shanghai", "--continuous-timing", "false"]);
+  const last = requests[requests.length - 1];
+  assert.deepEqual(last.body, { timezone: "Asia/Shanghai", continuousTiming: false });
+});
+
+test("account profile：--continuous-timing 非法值 → USAGE", async () => {
+  await assertUsage(run(["account", "profile", "--continuous-timing", "yes"]));
 });
 
 test("account password：body 含新旧密码且不出现在输出", async () => {

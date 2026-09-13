@@ -41,6 +41,9 @@ async function authStatus(): Promise<unknown> {
   const me = (await request(auth.url, auth.token, "/api/auth/me")) as {
     id: string;
     username: string;
+    displayName: string | null;
+    timezone: string | null;
+    continuousTiming: boolean;
   };
   return {
     url: auth.url,

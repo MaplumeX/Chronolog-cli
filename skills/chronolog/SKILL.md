@@ -33,6 +33,7 @@ Routine timer actions explicitly requested by the user may proceed. Before any d
 This approval boundary includes:
 
 - deleting an entry, goal, tag, token, or account;
+- merging entries, because the entry not selected by `--keep` is deleted;
 - deleting a category, because its children are deleted and referenced entries lose that category;
 - changing the account password;
 - replacing associations when an update flag has full-replacement semantics.

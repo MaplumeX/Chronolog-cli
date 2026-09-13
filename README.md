@@ -79,6 +79,8 @@ chronolog capabilities                   # 全部命令、参数、认证与操�
 
 `entries list`、`stats today`、`stats range`、`goals list` 需要 IANA 时区。默认取本机时区（`Intl.DateTimeFormat().resolvedOptions().timeZone`），可用 `--tz Asia/Shanghai` 覆盖。agent 在远程运行时建议显式传 `--tz`。
 
+服务端另有用户级时区设置（`account profile --timezone <tz>`），但它只影响 Web 端展示；上述日期范围接口仍要求显式 `tz` 参数，不会回退到用户设置。
+
 ## 命令一览
 
 ### 认证与账号
@@ -88,25 +90,25 @@ chronolog auth login --url <url> --token <token>   # 写配置文件
 chronolog auth status                              # url、token 掩码、认证来源（env/file）、当前用户
 chronolog auth logout                              # 删除配置文件中的认证信息
 chronolog auth register --url <url> --username <u> --password <p>  # 注册（可选功能）
-chronolog account profile [--username <u>] [--display-name <n>]   # 改昵称/用户名（至少一个字段）
+chronolog account profile [--username <u>] [--display-name <n>] [--timezone <tz|none>] [--continuous-timing <true|false>]  # 改用户名/昵称/时区/无间隙计时（至少一个字段）
 chronolog account password --current-password <p> --new-password <p>  # 改密码（撤销所有 session，PAT 不受影响）
 chronolog account delete --password <p>           # 删账号（密码确认，级联删除全部数据，不可逆）
 chronolog account meta                             # 查询注册开关（无认证）
 chronolog health [--url <url>]                    # 健康检查（无认证，探测连通性）
 ```
 
-`account profile --display-name ""` 空串表示清除昵称（服务端转为 null）。密码只进请求体，不会出现在任何输出中。`account meta` / `health` 不需要 token，URL 取 `--url` 或 env/config 中的 url。
+`account profile --display-name ""` 空串表示清除昵称（服务端转为 null）。`--timezone` 为 IANA 时区名，`--timezone none` 清除（跟随浏览器）；`--continuous-timing true` 开启无间隙计时（停止计时器时自动开始下一段）。密码只进请求体，不会出现在任何输出中。`account meta` / `health` 不需要 token，URL 取 `--url` 或 env/config 中的 url。`auth status` 返回的 `user` 含 `timezone` 与 `continuousTiming`。
 
 ### 计时器
 
 ```bash
 chronolog timer start --category <id|名称> [--description <文本>] [--tag <id|名称>...]
 chronolog timer status    # 无运行中计时则 {"entry": null}
-chronolog timer stop
+chronolog timer stop      # 开启无间隙计时时自动开始下一段（返回的 entry 为新段，stoppedAt 为 null）
 chronolog timer edit [--description <文本>] [--category <id|名称>] [--tag <id|名称>...]
 ```
 
-`timer edit` 编辑当前运行中的计时器，只传需要改的字段（至少一个）；`--tag` 一旦出现即全量替换该条目的标签。无运行中计时器时服务端报 `CONFLICT`。
+`timer edit` 编辑当前运行中的计时器，只传需要改的字段（至少一个）；`--tag` 一旦出现即全量替换该条目的标签。无运行中计时器时服务端报 `CONFLICT`。开启无间隙计时（`account profile --continuous-timing true`）后，`timer stop` 会停止旧段并在同一时刻自动开始新段（分类为空、描述为空），返回的 `entry.stoppedAt === null` 表示已换段而非完全停止。
 
 `--category` / `--tag` 支持名称解析：先精确匹配名称，唯一命中则使用其 id，否则视为 id 直接使用。名称不存在时服务端报 `NOT_FOUND`。
 
@@ -118,9 +120,12 @@ chronolog entries list --week  [--date <YYYY-MM-DD>] [--tz <tz>]
 chronolog entries create --category <id|名称> --description <文本> [--tag <id|名称>...] --started-at <iso> --stopped-at <iso>
 chronolog entries update <id> --category <id|名称> --description <文本> [--tag <id|名称>...] --started-at <iso> --stopped-at <iso>
 chronolog entries delete <id>
+chronolog entries merge <id> --direction <prev|next> --keep <self|other>
 ```
 
 `entries create` 手动创建已停止条目（`--started-at`/`--stopped-at` 为 ISO 时刻，与 update 一致）；与既有条目重叠时服务端报 `OVERLAP`。`entries delete` 仅能删除已停止条目，运行中的报 `CONFLICT`。`entries update` 为全量字段（对应服务端 PATCH 语义）。
+
+`entries merge` 把 `<id>` 条目与其紧邻的上一条（`--direction prev`）或下一条（`--direction next`）合并：时间取两段并集，`--keep self` 保留 `<id>` 的描述/分类/标签，`--keep other` 保留相邻条的；未被保留的那条会被删除。不相邻或对方仍在运行时报 `CONFLICT`。
 
 ### 统计
 

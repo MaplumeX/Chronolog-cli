@@ -1,6 +1,6 @@
 {
   "name": "chronolog-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "JSON-output CLI for AI agents to operate a Chronolog instance",
   "type": "module",
   "bin": {

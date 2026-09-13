@@ -74,7 +74,7 @@ export const COMMANDS: CommandSpec[] = [
     auth: true, operation: "read", positionals: [], flags: [], errors: AUTH_ERRORS,
   },
   {
-    path: ["timer", "stop"], summary: "停止当前计时器", usage: "chronolog timer stop",
+    path: ["timer", "stop"], summary: "停止当前计时器（开启无间隙模式时会自动开始下一段）", usage: "chronolog timer stop",
     auth: true, operation: "write", positionals: [], flags: [], errors: WRITE_ERRORS,
   },
   {
@@ -104,6 +104,12 @@ export const COMMANDS: CommandSpec[] = [
   {
     path: ["entries", "delete"], summary: "删除已停止的时间条目", usage: "chronolog entries delete <id>",
     auth: true, operation: "destructive", positionals: [positional("id", "条目 ID")], flags: [], errors: WRITE_ERRORS,
+  },
+  {
+    path: ["entries", "merge"], summary: "合并相邻条目（保留一条，另一条被删除）", usage: "chronolog entries merge <id> --direction <prev|next> --keep <self|other>",
+    auth: true, operation: "destructive", positionals: [positional("id", "条目 ID")],
+    flags: [flag("direction", "string", "合并方向：上一条或下一条", { value: "prev|next", required: true }), flag("keep", "string", "保留哪条的属性（描述/分类/标签），时间取并集", { value: "self|other", required: true })],
+    errors: [...WRITE_ERRORS, "OVERLAP"],
   },
   {
     path: ["stats", "today"], summary: "读取当天统计", usage: "chronolog stats today [--tz <tz>] [--tag-id <id>] [--rollup]",
@@ -148,8 +154,9 @@ export const COMMANDS: CommandSpec[] = [
     auth: true, operation: "destructive", positionals: [positional("id", "Token ID")], flags: [], errors: WRITE_ERRORS,
   },
   {
-    path: ["account", "profile"], summary: "更新用户名或显示名称", usage: "chronolog account profile [--username <u>] [--display-name <n>]",
-    auth: true, operation: "write", positionals: [], flags: [flag("username", "string", "新用户名", { value: "u" }), flag("display-name", "string", "新显示名称，空串表示清除", { value: "n" })], errors: WRITE_ERRORS,
+    path: ["account", "profile"], summary: "更新用户名、显示名称、时区或无间隙计时开关", usage: "chronolog account profile [--username <u>] [--display-name <n>] [--timezone <tz|none>] [--continuous-timing <true|false>]",
+    auth: true, operation: "write", positionals: [],
+    flags: [flag("username", "string", "新用户名", { value: "u" }), flag("display-name", "string", "新显示名称，空串表示清除", { value: "n" }), flag("timezone", "string", "IANA 时区，none 表示清除（跟随浏览器）", { value: "tz|none" }), flag("continuous-timing", "string", "无间隙计时开关", { value: "true|false" })], errors: WRITE_ERRORS,
   },
   {
     path: ["account", "password"], summary: "修改密码并撤销 sessions", usage: "chronolog account password --current-password <p> --new-password <p>",

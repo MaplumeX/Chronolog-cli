@@ -19,7 +19,7 @@ test("命令目录覆盖当前全部公开命令", () => {
       "account delete", "account meta", "account password", "account profile",
       "auth login", "auth logout", "auth register", "auth status",
       "categories add", "categories archive", "categories delete", "categories list", "categories rename", "categories unarchive",
-      "entries create", "entries delete", "entries list", "entries update",
+      "entries create", "entries delete", "entries list", "entries merge", "entries update",
       "goals add", "goals delete", "goals list", "goals update",
       "health",
       "stats range", "stats today",
