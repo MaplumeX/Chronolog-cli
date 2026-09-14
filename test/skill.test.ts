@@ -30,3 +30,18 @@ test("Chronolog skill 覆盖发现、时区、审批、秘密和重试边界", (
   }
   assert.doesNotMatch(source, /^allowed-tools:/m);
 });
+
+test("Chronolog skill 覆盖无间隙计时的停止语义与完全停止序列", () => {
+  const source = readFileSync(skillFile, "utf8");
+  for (const expected of [
+    "user.continuousTiming",
+    "--continuous-timing false",
+    "`stoppedAt: null` means a new segment is running",
+    "not data loss",
+    "do not stop-then-start",
+    "fill it in with `chronolog timer edit`",
+    "`entries merge`",
+  ]) {
+    assert.match(source, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+});

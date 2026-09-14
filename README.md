@@ -110,6 +110,17 @@ chronolog timer edit [--description <文本>] [--category <id|名称>] [--tag <i
 
 `timer edit` 编辑当前运行中的计时器，只传需要改的字段（至少一个）；`--tag` 一旦出现即全量替换该条目的标签。无运行中计时器时服务端报 `CONFLICT`。开启无间隙计时（`account profile --continuous-timing true`）后，`timer stop` 会停止旧段并在同一时刻自动开始新段（分类为空、描述为空），返回的 `entry.stoppedAt === null` 表示已换段而非完全停止。
 
+**完全停止计时**（无间隙模式开启时）：
+
+```bash
+chronolog account profile --continuous-timing false
+chronolog timer stop
+```
+
+先关开关再停止，否则 stop 只会换段。切换后想恢复无间隙模式，再执行 `account profile --continuous-timing true`。无间隙模式产生的段没有分类和描述，属正常现象，可用 `timer edit` 补齐或用 `entries merge` 合并相邻段。
+
+**切换任务**：计时中想改做另一件事时直接 `timer start --category <新分类> ...`，服务端会自动停止旧段并在同一时刻开始新段——无需先 `timer stop`，也不会产生空段。
+
 `--category` / `--tag` 支持名称解析：先精确匹配名称，唯一命中则使用其 id，否则视为 id 直接使用。名称不存在时服务端报 `NOT_FOUND`。
 
 ### 条目
